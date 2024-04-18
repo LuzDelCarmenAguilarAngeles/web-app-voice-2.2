@@ -1,141 +1,112 @@
-window.innerWidth = 800;
-window.innerHeight = 600;
+document.addEventListener('DOMContentLoaded', function () {
+    const resultDiv = document.getElementById('result');
 
-let recognition; // Variable para almacenar el objeto de reconocimiento de voz
-let restartInterval; 
+    // Comprobar si el navegador admite la API de reconocimiento de voz
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
 
-function startRecording() {
-    recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition || window.mozSpeechRecognition || window.msSpeechRecognition)();
-    recognition.lang = 'es-ES';
-    const ordenIdentificada = document.getElementById('ordenIdentificada');
-    recognition.onresult = function (event) {
-        // Trae la información de todo lo que estuve hablando
-        const transcript = event.results[0][0].transcript;
-        if (transcript.toLowerCase().includes('comandos')) {
+        // Definir configuraciones del reconocimiento de voz
+        // Configurar el idioma a español
+        recognition.lang = 'es-ES';
 
-            ordenIdentificada.textContent = "Orden Identificada: " + transcript;
+        // Escuchar cuando se haya detectado un resultado
+        recognition.onresult = function (event) {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            console.log('Transcripción de voz:', transcript);
 
-            // Verificar diferentes instrucciones reconocidas por voz usando switch
-            switch (true) {
-                case transcript.toLowerCase().includes('abre una ventana nueva'):
-                    // Abre una nueva pestaña
-                    enviarDatosAMockAPI('Abre una ventana nueva');
-                    window.open('about:blank', '_blank');
-                    break;
-                case transcript.toLowerCase().includes('abre la página del tec'):
-                    // Abre la página del tec en una nueva ventana
-                    window.open('https://www.tecnm.mx/', '_blank');
-                    enviarDatosAMockAPI('Abre la página del tec');
-                    break;
-                case transcript.toLowerCase().includes('cambia dimensiones de la ventana'):
-                    enviarDatosAMockAPI('Cambia dimensiones de la ventana').then(() => {
-                        setTimeout(function () {
-                            // Obtener la URL actual
-                            const urlActual = window.location.href;
-                            // Abrir una nueva ventana con la misma URL y dimensiones deseadas
-                            const nuevaVentana = window.open(urlActual, '', 'width=800,height=600');
-                            if (nuevaVentana) {
-                                // Cerrar la ventana actual
-                                window.close();
-                            }
-                        }, 1000); // 1000 milisegundos = 1 segundo
-                    });
-                    break;
-                case transcript.toLowerCase().includes('cierra esta ventana'):
-                    enviarDatosAMockAPI('Cierra esta ventana').then(() => {
-                        setTimeout(function () {
-                            window.open('', '_self', '');
-                            window.close();
-                        }, 1000); // 1000 milisegundos = 1 segundo
-                    });
-                    break;
-                case transcript.toLowerCase().includes('dime la hora actual'):
-                    // Obtiene la hora actual
-                    enviarDatosAMockAPI('Hora actual');
-                    var fecha = new Date();
-                    var hora = fecha.getHours();
-                    var minutos = fecha.getMinutes();
-                    // Convierte la hora en formato legible
-                    var horaLegible = hora + ":" + (minutos < 10 ? '0' : '') + minutos;
-                    // Utiliza la API de Text-to-Speech para decir la hora
-                    var synth = window.speechSynthesis;
-                    var utterance = new SpeechSynthesisUtterance("La hora actual es " + horaLegible);
-                    synth.speak(utterance);
-                    break;
-                case transcript.toLowerCase().includes('consultar clima'):
-                    enviarDatosAMockAPI('Consultar clima');
-                    var ciudad = prompt("Por favor, ingresa la ciudad para buscar el clima en Google:");
-                    if (ciudad) {
-                        var urlGoogleClima = 'https://www.google.com/search?q=clima+' + ciudad;
-                        window.open(urlGoogleClima, '_blank');
-                    } else {
-                        alert("Debes ingresar una ciudad para buscar el clima.");
-                    }
-                    break;
-                default:
-                    // Instrucción no reconocida
-                    console.log('Instrucción no reconocida');
+            // Ejecutar acciones según el comando de voz
+            if (transcript.includes('abrir nueva pestaña')) {
+                window.open('', '_blank');
+                resultDiv.innerHTML = '<p>Nueva pestaña abierta.</p>';
+            } else if (transcript.includes('ir a')) {
+                const url = obtenerUrl(transcript);
+                if (url) {
+                    window.location.href = url;
+                    resultDiv.innerHTML = `<p>Redirigiendo a <strong>${url}</strong>.</p>`;
+                } else {
+                    resultDiv.innerHTML = '<p>Error: No se proporcionó una URL válida.</p>';
+                }
+            } else if (transcript.includes('cerrar pestaña')) {
+                window.close();
+                resultDiv.innerHTML = '<p>Pestaña cerrada.</p>';
+            } else if (transcript.includes('cerrar navegador')) {
+                window.open('', '_self', '');
+                window.close();
+                resultDiv.innerHTML = '<p>Navegador cerrado.</p>';
+            } else if (transcript.includes('tamaño')) {
+                const palabras = transcript.split(' ');
+                const indexTamaño = palabras.indexOf('tamaño');
+
+                // Obtener el tamaño de letra especificado en el comando
+                const tamaño = parseInt(palabras[indexTamaño + 1]);
+
+                // Aplicar el tamaño de letra al elemento de controlTexto
+                if (!isNaN(tamaño)) {
+                    document.body.style.fontSize = tamaño + 'px';
+                    resultDiv.innerHTML = `<p>Tamaño de letra cambiado a <strong>${tamaño}px</strong>.</p>`;
+                } else {
+                    resultDiv.innerHTML = '<p>Error: No se proporcionó un tamaño válido.</p>';
+                }
+            } else {
+                resultDiv.innerHTML = '<p>Comando no reconocido.</p>';
             }
-        }
-    };
 
-    recognition.onerror = function (event) {
-        console.error('Error en el reconocimiento de voz: ', event.error);
+            // Enviar el comando de voz a MockAPI junto con la fecha y hora actual
+            enviarComandoAVoz(transcript, obtenerFechaHoraActual());
+        };
+
+        // Escuchar errores
+        recognition.onerror = function (event) {
+            console.error('Error de reconocimiento de voz:', event.error);
+            resultDiv.innerHTML = '<p>Error al procesar la orden de voz. Por favor, inténtalo de nuevo.</p>';
+        };
+
+        // Iniciar el reconocimiento de voz cuando se haga clic en cualquier parte del documento
+        document.body.addEventListener('click', function () {
+            recognition.start();
+            resultDiv.innerHTML = '<p>Escuchando... Di tu orden.</p>';
+        });
+    } else {
+        // Si el navegador no admite la API de reconocimiento de voz, mostrar un mensaje de error
+        resultDiv.innerHTML = '<p>Tu navegador no admite la API de reconocimiento de voz. Por favor, actualízalo a una versión más reciente.</p>';
     }
+});
 
-    recognition.start();
-
-    // Reinicia la grabación cada 5 segundos
-    restartInterval = setInterval(function () {
-        recognition.start();
-    }, 2000);
+// Función para obtener la URL de un comando
+function obtenerUrl(transcript) {
+    const palabras = transcript.split(' ');
+    const indexIrA = palabras.indexOf('ir') + 1;
+    return palabras.slice(indexIrA).join(' ');
 }
 
-function stopRecording() {
-    if (recognition) {
-        recognition.stop();
-        clearInterval(restartInterval); // Detiene el intervalo de reinicio
-    }
-}
-
+// Función para obtener la fecha y hora actual en el formato deseado
 function obtenerFechaHoraActual() {
-    return new Date().toLocaleString();
+    const fechaHora = new Date().toISOString().split('T');
+    return {
+        fecha: fechaHora[0],
+        hora: fechaHora[1].slice(0, 8) // Para obtener solo la hora en formato HH:MM:SS
+    };
 }
 
-// Función para enviar datos a MockAPI
-function enviarDatosAMockAPI(instruccion) {
-    const fechaHoraActual = obtenerFechaHoraActual();
-
-    // Datos a enviar en la solicitud POST
-    const datos = {
-        comando: comando,
-        fecha: fechaHoraActual
-    };
-
-    // Opciones de la solicitud
-    const opciones = {
+// Función para enviar el comando de voz a MockAPI
+function enviarComandoAVoz(comando, fechaHora) {
+    fetch('https://65ef77c3ead08fa78a507bac.mockapi.io/webappvoice', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(datos)
-    };
-
-    // URL de MockAPI
-    const urlMockAPI = 'https://65ef77c3ead08fa78a507bac.mockapi.io/webappvoice';
-
-    // Enviar la solicitud POST
-    return fetch(urlMockAPI, opciones)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Error en la solicitud POST a MockAPI');
-            }
-            return response.json();
+        body: JSON.stringify({
+            comando: comando,
+            fecha: fechaHora.fecha,
+            hora: fechaHora.hora
         })
-        .then(data => {
-            console.log('Registro exitoso en MockAPI:', data);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error al enviar el comando de voz a MockAPI');
+        }
+        console.log('Comando de voz enviado correctamente a MockAPI');
+    })
+    .catch(error => console.error('Error:', error));
 }

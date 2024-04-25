@@ -52,7 +52,7 @@ function esIgual(objA, objB) {
 
 function manejarAccion(ultimoDato) {
     switch (ultimoDato.comando.toLowerCase()) {
-        case 'abre una ventana nueva':
+        case 'abrir nueva pestaña':
             // Abre una nueva pestaña
             window.open('about:blank', '_blank');
             break;
@@ -72,7 +72,7 @@ function manejarAccion(ultimoDato) {
                 }
             }
             break;
-        case 'cierra esta ventana':
+        case 'cerrar pestaña':
             // Cierra la ventana actual
             window.open('', '_self', '');
             window.close();
